@@ -24,6 +24,10 @@
 // Override global a rules
 .forum-nav-browse-title {
   color: inherit !important;
+  cursor: pointer;
+  &.is-focused {
+    background-color: white;
+  }
 }
 
 // Override global label rules
@@ -49,6 +53,11 @@
 .forum-nav-browse-menu {
   padding-left: 0;
 }
+
+.forum-nav-browse-menu-item {
+  margin-bottom: 0;
+}
+
 
 // --------------------------------
 // navigation - sort and filter bar

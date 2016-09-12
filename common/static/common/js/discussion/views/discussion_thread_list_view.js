@@ -36,6 +36,9 @@
                 this.chooseFilter = function() {
                     return DiscussionThreadListView.prototype.chooseFilter.apply(self, arguments);
                 };
+                this.keyboardBinding = function() {
+                    return DiscussionThreadListView.prototype.keyboardBinding.apply(self, arguments);
+                };
                 this.filterTopics = function() {
                     return DiscussionThreadListView.prototype.filterTopics.apply(self, arguments);
                 };
@@ -95,6 +98,7 @@
                     return DiscussionUtil.ignoreEnterKey(event);
                 },
                 'keyup .forum-nav-browse-filter-input': 'filterTopics',
+                'keydown .forum-nav-browse-filter-input': 'keyboardBinding',
                 'click .forum-nav-browse-menu-wrapper': 'ignoreClick',
                 'click .forum-nav-browse-title': 'selectTopicHandler',
                 'change .forum-nav-sort-control': 'sortThreads',
@@ -125,6 +129,10 @@
                 this.boardName = null;
                 this.current_search = '';
                 this.mode = 'all';
+                this.selectedTopicIndex = -1;
+                this.selectedTopicId = null;
+                this.filterEnabled = true;
+                this.selectedTopic = $('.forum-nav-browse-menu-item:visible .forum-nav-browse-title.is-focused');
                 this.searchAlertCollection = new Backbone.Collection([], {
                     model: Backbone.Model
                 });
@@ -436,6 +444,7 @@
                     this.$('.forum-nav-thread-list-wrapper').hide();
                     if (!initialLoad) {
                         $('.forum-nav-browse-filter-input').focus();
+                        this.filterInputReset();
                     }
                     $('body').bind('click', this.hideBrowseMenu);
                     return this.updateSidebar();
@@ -444,19 +453,28 @@
 
             DiscussionThreadListView.prototype.hideBrowseMenu = function() {
                 if (this.isBrowseMenuVisible()) {
+                    var selectedTopicList = this.$('.forum-nav-browse-title.is-focused');
+                    selectedTopicList.removeClass('is-focused');
                     this.$('.forum-nav-browse-menu-wrapper').hide();
                     this.$('.forum-nav-thread-list-wrapper').show();
+                    if (typeof this.selectedTopicId !== 'undefined') {
+                        this.$('.forum-nav-browse-filter-input').attr('aria-activedescendant', this.selectedTopicId);
+                    }
                     $('body').unbind('click', this.hideBrowseMenu);
                     return this.updateSidebar();
                 }
             };
 
             DiscussionThreadListView.prototype.toggleBrowseMenu = function(event) {
+                var inputText = $('.forum-nav-browse-filter-input').val();
                 event.preventDefault();
                 event.stopPropagation();
                 if (this.isBrowseMenuVisible()) {
                     return this.hideBrowseMenu();
                 } else {
+                    if (inputText !== '') {
+                        this.filterTopics(inputText);
+                    }
                     return this.showBrowseMenu();
                 }
             };
@@ -493,28 +511,121 @@
                 return crumbs;
             };
 
-            DiscussionThreadListView.prototype.filterTopics = function(event) {
-                var items, query,
-                    self = this;
-                query = $(event.target).val();
-                items = this.$('.forum-nav-browse-menu-item');
-                if (query.length === 0) {
-                    return items.show();
-                } else {
-                    items.hide();
-                    return items.each(function(i, item) {
-                        var path, pathText,
-                            $item = $(item);
-                        if (!$item.is(':visible')) {
-                            pathText = self.getPathText($item).toLowerCase();
-                            if (query.split(' ').every(function(term) {
-                                return pathText.search(term.toLowerCase()) !== -1;
-                            })) {
-                                path = $item.parents('.forum-nav-browse-menu-item').andSelf();
-                                return path.add($item.find('.forum-nav-browse-menu-item')).show();
+            DiscussionThreadListView.prototype.selectOption = function(element) {
+                var activeDescendantId, activeDescendantText;
+                if (this.selectedTopic.length > 0) {
+                    this.selectedTopic.removeClass('is-focused');
+                }
+                if (element) {
+                    element.addClass('is-focused');
+                    activeDescendantId = element.parent().attr('id');
+                    activeDescendantText = element.text();
+                    this.selectedTopic = element;
+                    this.selectedTopicId = activeDescendantId;
+                    $('.forum-nav-browse-filter-input')
+                        .attr('aria-activedescendant', activeDescendantId)
+                        .val(activeDescendantText);
+                }
+            };
+
+            DiscussionThreadListView.prototype.filterInputReset = function() {
+                this.filterEnabled = true;
+                this.selectedTopicIndex = -1;
+                this.selectedTopicId = null;
+            };
+
+            DiscussionThreadListView.prototype.keyboardBinding = function(event) {
+                var $inputText = $('.forum-nav-browse-filter-input'),
+                    $filteredMenuItems = $('.forum-nav-browse-menu-item:visible'),
+                    filteredMenuItemsLen = $filteredMenuItems.length,
+                    $curOption = $filteredMenuItems.eq(0).find('.forum-nav-browse-title').eq(0);
+
+                switch (event.keyCode) {
+                    case 13: {  // enter key
+                        var query = $('.forum-nav-browse-menu-item:visible').find('.forum-nav-browse-title.is-focused');
+                        if ($inputText.val() !== '' && $inputText.focus()) {
+                            query.trigger('click');
+                            this.filterInputReset();
+                        }
+                        break;
+                    }
+
+                    case 27: { // escape key
+                        this.toggleBrowseMenu(event);
+                        $('.forum-nav-browse-filter-input').val('');
+                        this.filterInputReset();
+                        $('.all-topics').trigger('click');
+                        break;
+                    }
+
+                    case 38: { // up arrow
+                        if (this.selectedTopicIndex > 0) {
+                            var $prev = $('.forum-nav-browse-menu-item:visible')
+                                .eq(this.selectedTopicIndex).find('.forum-nav-browse-title').eq(0);
+                            this.selectedTopicIndex -= 1;
+                            if (this.isBrowseMenuVisible()) {
+                                this.filterEnabled = false;
+                                $curOption.removeClass('is-focused');
+                                $prev.addClass('is-focused');
+                                this.selectOption($prev);
+                            } else {
+                                this.selectOption($prev);
                             }
                         }
-                    });
+                      break;
+                    }
+
+                    case 40: { // down arrow
+                        if (this.selectedTopicIndex < filteredMenuItemsLen - 1) {
+                            this.selectedTopicIndex += 1;
+                            if (this.isBrowseMenuVisible()) {
+                                var $next = $('.forum-nav-browse-menu-item:visible')
+                                    .eq(this.selectedTopicIndex).find('.forum-nav-browse-title').eq(0);
+                                this.filterEnabled = false;
+                                $curOption.removeClass('is-focused');
+                                $next.addClass('is-focused');
+                                this.selectOption($next);
+                            } else {
+                                this.selectOption($next);
+                            }
+                        }
+                      break;
+                    }
+
+                    default: {
+                        break;
+                    }
+
+                }
+                return true;
+            };
+
+            DiscussionThreadListView.prototype.filterTopics = function() {
+                var items, query,
+                    self = this;
+                query = this.$('.forum-nav-browse-filter-input').val();
+                items = this.$('.forum-nav-browse-menu-item');
+                if (query.length === 0) {
+                    items.find('.forum-nav-browse-title.is-focused').removeClass('is-focused');
+                    return items.show();
+                } else {
+                    if (this.filterEnabled) {
+                        items.hide();
+                        return items.each(function(i, item) {
+                            var path, pathText,
+                                $item = $(item);
+                            if (!$item.is(':visible')) {
+                                pathText = self.getPathText($item).toLowerCase();
+                                if (query.split(' ').every(function(term) {
+                                    return pathText.search(term.toLowerCase()) !== -1;
+                                })) {
+                                    path = $item.parents('.forum-nav-browse-menu-item').andSelf();
+                                    return path.add($item.find('.forum-nav-browse-menu-item')).show();
+                                }
+                            }
+                        });
+                    }
+                    return false;
                 }
             };
 
