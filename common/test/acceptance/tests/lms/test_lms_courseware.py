@@ -3,31 +3,27 @@
 End-to-end tests for the LMS.
 """
 
-from contextlib import contextmanager
 import json
 from datetime import datetime, timedelta
 
 import ddt
+from capa.tests.response_xml_factory import MultipleChoiceResponseXMLFactory
 from nose.plugins.attrib import attr
 
-from capa.tests.response_xml_factory import MultipleChoiceResponseXMLFactory
 from ..helpers import UniqueCourseTest, EventsTestMixin
-from ...pages.studio.auto_auth import AutoAuthPage
-from ...pages.lms.create_mode import ModeCreationPage
-from ...pages.studio.component_editor import ComponentEditorView
-from ...pages.studio.overview import CourseOutlinePage
-from ...pages.studio.utils import type_in_codemirror
-from ...pages.lms.courseware import CoursewarePage, CoursewareSequentialTabPage
-from ...pages.lms.course_nav import CourseNavPage
-from ...pages.lms.instructor_dashboard import InstructorDashboardPage
-from ...pages.lms.problem import ProblemPage
+from ...fixtures.course import CourseFixture, XBlockFixtureDesc
 from ...pages.common.logout import LogoutPage
+from ...pages.lms.course_nav import CourseNavPage
+from ...pages.lms.courseware import CoursewarePage, CoursewareSequentialTabPage
+from ...pages.lms.create_mode import ModeCreationPage
+from ...pages.lms.dashboard import DashboardPage
+from ...pages.lms.pay_and_verify import PaymentAndVerificationFlow, FakePaymentPage
+from ...pages.lms.problem import ProblemPage
+from ...pages.lms.progress import ProgressPage
 from ...pages.lms.staff_view import StaffPage
 from ...pages.lms.track_selection import TrackSelectionPage
-from ...pages.lms.pay_and_verify import PaymentAndVerificationFlow, FakePaymentPage
-from ...pages.lms.dashboard import DashboardPage
-from ...pages.lms.progress import ProgressPage
-from ...fixtures.course import CourseFixture, XBlockFixtureDesc
+from ...pages.studio.auto_auth import AutoAuthPage
+from ...pages.studio.overview import CourseOutlinePage
 
 
 def create_multiple_choice_problem(problem_name):
